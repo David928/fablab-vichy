@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "./supabase.js";
 
 const MACHINES = [
   {
@@ -90,11 +91,6 @@ const MACHINES = [
   },
 ];
 
-const INITIAL_USERS = [
-  { id: 1, name: "Marie Dupont", email: "marie@fablab.fr", password: "demo", role: "user", authorizedMachines: ["brodeuse", "sublimation", "presse"] },
-  { id: 2, name: "Thomas Lefebvre", email: "thomas@fablab.fr", password: "demo", role: "user", authorizedMachines: ["laser", "printer3d"] },
-  { id: 3, name: "Admin FabLab", email: "admin@fablab.fr", password: "admin", role: "admin", authorizedMachines: ["brodeuse", "laser", "sublimation", "printer3d", "presse"] },
-];
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -236,11 +232,21 @@ function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    const user = INITIAL_USERS.find(u => u.email === email && u.password === password);
-    if (user) { onLogin(user); }
-    else { setError("Email ou mot de passe incorrect."); }
+  const handleSubmit = async () => {
+    if (!email || !password) return;
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase
+      .from("members")
+      .select("*")
+      .eq("email", email.toLowerCase().trim())
+      .eq("password", password)
+      .single();
+    setLoading(false);
+    if (err || !data) { setError("Email ou mot de passe incorrect."); return; }
+    onLogin({ ...data, authorizedMachines: data.authorized_machines || [] });
   };
 
   return (
@@ -259,11 +265,9 @@ function LoginScreen({ onLogin }) {
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" onKeyDown={e => e.key === "Enter" && handleSubmit()} />
         </div>
         {error && <div className="login-error">{error}</div>}
-        <button className="btn btn-primary" style={{ width: "100%" }} onClick={handleSubmit}>Se connecter</button>
-        <div className="login-hint">
-          Démo utilisateur : <code>marie@fablab.fr</code> / <code>demo</code><br />
-          Démo admin : <code>admin@fablab.fr</code> / <code>admin</code>
-        </div>
+        <button className="btn btn-primary" style={{ width: "100%" }} onClick={handleSubmit} disabled={loading}>
+          {loading ? "Connexion…" : "Se connecter"}
+        </button>
       </div>
     </div>
   );
@@ -366,76 +370,151 @@ function MachinesView({ currentUser }) {
   );
 }
 
-function AdminView({ users, setUsers }) {
-  const [savedMsg, setSavedMsg] = useState(false);
-  const [localUsers, setLocalUsers] = useState(users.filter(u => u.role !== "admin"));
+function AdminView() {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [savedMsg, setSavedMsg] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "user" });
+  const [addError, setAddError] = useState("");
 
-  const toggle = (userId, machineId) => {
-    setLocalUsers(prev => prev.map(u => {
-      if (u.id !== userId) return u;
-      const has = u.authorizedMachines.includes(machineId);
-      return { ...u, authorizedMachines: has ? u.authorizedMachines.filter(m => m !== machineId) : [...u.authorizedMachines, machineId] };
-    }));
+  const fetchMembers = async () => {
+    const { data } = await supabase.from("members").select("*").eq("role", "user").order("name");
+    setMembers((data || []).map(u => ({ ...u, authorizedMachines: u.authorized_machines || [] })));
+    setLoading(false);
   };
 
-  const save = () => {
-    setUsers(prev => prev.map(u => {
-      const updated = localUsers.find(lu => lu.id === u.id);
-      return updated || u;
-    }));
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 3000);
+  useEffect(() => { fetchMembers(); }, []);
+
+  const toggle = async (userId, machineId) => {
+    const member = members.find(u => u.id === userId);
+    const has = member.authorizedMachines.includes(machineId);
+    const updated = has
+      ? member.authorizedMachines.filter(m => m !== machineId)
+      : [...member.authorizedMachines, machineId];
+    await supabase.from("members").update({ authorized_machines: updated }).eq("id", userId);
+    setMembers(prev => prev.map(u => u.id === userId ? { ...u, authorizedMachines: updated } : u));
+    setSavedMsg("Autorisations mises à jour.");
+    setTimeout(() => setSavedMsg(""), 2500);
+  };
+
+  const deleteMember = async (userId, name) => {
+    if (!confirm(`Supprimer le membre "${name}" ?`)) return;
+    await supabase.from("members").delete().eq("id", userId);
+    setMembers(prev => prev.filter(u => u.id !== userId));
+    setSavedMsg("Membre supprimé.");
+    setTimeout(() => setSavedMsg(""), 2500);
+  };
+
+  const addMember = async () => {
+    setAddError("");
+    if (!newUser.name || !newUser.email || !newUser.password) { setAddError("Tous les champs sont obligatoires."); return; }
+    const { error } = await supabase.from("members").insert({
+      name: newUser.name,
+      email: newUser.email.toLowerCase().trim(),
+      password: newUser.password,
+      role: newUser.role,
+      authorized_machines: [],
+    });
+    if (error) { setAddError(error.message.includes("unique") ? "Cet email existe déjà." : error.message); return; }
+    setNewUser({ name: "", email: "", password: "", role: "user" });
+    setShowAdd(false);
+    fetchMembers();
+    setSavedMsg("Membre ajouté avec succès.");
+    setTimeout(() => setSavedMsg(""), 2500);
   };
 
   return (
     <>
       <div className="page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
-          <div className="page-title">Gestion des autorisations</div>
-          <div className="page-sub">Cochez les machines pour lesquelles chaque membre a été formé.</div>
+          <div className="page-title">Gestion des membres</div>
+          <div className="page-sub">Gérez les membres et leurs autorisations machines.</div>
         </div>
-        <button className="btn btn-primary" onClick={save}>Enregistrer les modifications</button>
+        <button className="btn btn-primary" onClick={() => setShowAdd(s => !s)}>
+          {showAdd ? "Annuler" : "+ Ajouter un membre"}
+        </button>
       </div>
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Membre</th>
-              <th>Machines autorisées</th>
-            </tr>
-          </thead>
-          <tbody>
-            {localUsers.map(user => (
-              <tr key={user.id}>
-                <td>
-                  <div className="user-name">{user.name}</div>
-                  <div className="user-email">{user.email}</div>
-                  <div style={{ marginTop: 6, fontSize: 12, color: "var(--accent)" }}>
-                    {user.authorizedMachines.length}/{MACHINES.length} machines
-                  </div>
-                </td>
-                <td>
-                  <div className="machine-checkboxes">
-                    {MACHINES.map(m => {
-                      const active = user.authorizedMachines.includes(m.id);
-                      return (
-                        <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`}>
-                          <input type="checkbox" checked={active} onChange={() => toggle(user.id, m.id)} />
-                          {m.icon} {m.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </td>
+
+      {showAdd && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--accent)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: "var(--accent)", marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" }}>Nouveau membre</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Nom complet</label>
+              <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="Prénom Nom" />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Email</label>
+              <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="prenom@email.fr" />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Mot de passe</label>
+              <input type="text" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} placeholder="mot de passe temporaire" />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Rôle</label>
+              <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                <option value="user">Membre</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          {addError && <div style={{ color: "var(--danger)", fontSize: 13, marginTop: 12 }}>{addError}</div>}
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={addMember}>Créer le membre</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: "var(--muted)", textAlign: "center", padding: 48 }}>Chargement…</div>
+      ) : (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Membre</th>
+                <th>Machines autorisées</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {members.length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>Aucun membre.</td></tr>
+              ) : members.map(user => (
+                <tr key={user.id}>
+                  <td>
+                    <div className="user-name">{user.name}</div>
+                    <div className="user-email">{user.email}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--accent)" }}>
+                      {user.authorizedMachines.length}/{MACHINES.length} machines
+                    </div>
+                  </td>
+                  <td>
+                    <div className="machine-checkboxes">
+                      {MACHINES.map(m => {
+                        const active = user.authorizedMachines.includes(m.id);
+                        return (
+                          <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`} onClick={() => toggle(user.id, m.id)}>
+                            {m.icon} {m.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="btn btn-danger btn-sm" onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {savedMsg && (
         <div className="save-banner">
           <span>✓</span>
-          <span className="save-msg"><strong>Modifications enregistrées</strong> avec succès.</span>
+          <span className="save-msg"><strong>{savedMsg}</strong></span>
         </div>
       )}
     </>
@@ -444,7 +523,6 @@ function AdminView({ users, setUsers }) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState(INITIAL_USERS);
   const [tab, setTab] = useState("machines");
 
   if (!currentUser) {
@@ -458,8 +536,6 @@ export default function App() {
     );
   }
 
-  const enrichedUser = users.find(u => u.id === currentUser.id) || currentUser;
-
   return (
     <>
       <style>{css}</style>
@@ -469,20 +545,20 @@ export default function App() {
             <img src="/logo.png" alt="FabLab Vichy Communauté" className="logo-img" />
           </div>
           <div className="header-user">
-            <span className="user-badge">{enrichedUser.name}</span>
-            {enrichedUser.role === "admin" && <span className="admin-tag">Admin</span>}
+            <span className="user-badge">{currentUser.name}</span>
+            {currentUser.role === "admin" && <span className="admin-tag">Admin</span>}
             <button className="btn btn-ghost btn-sm" onClick={() => setCurrentUser(null)}>Déconnexion</button>
           </div>
         </header>
         <main className="main">
-          {enrichedUser.role === "admin" && (
+          {currentUser.role === "admin" && (
             <div className="tabs">
               <button className={`tab ${tab === "machines" ? "active" : ""}`} onClick={() => setTab("machines")}>Machines</button>
-              <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Autorisations</button>
+              <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Membres</button>
             </div>
           )}
-          {tab === "machines" && <MachinesView currentUser={enrichedUser} />}
-          {tab === "admin" && enrichedUser.role === "admin" && <AdminView users={users} setUsers={setUsers} />}
+          {tab === "machines" && <MachinesView currentUser={currentUser} />}
+          {tab === "admin" && currentUser.role === "admin" && <AdminView />}
         </main>
       </div>
     </>
