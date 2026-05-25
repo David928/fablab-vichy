@@ -510,6 +510,7 @@ const css = `
   .admin-table td { padding: 14px; border-bottom: 1px solid rgba(46,51,71,0.5); vertical-align: top; }
   .admin-table tr:last-child td { border-bottom: none; }
   .admin-table th:first-child, .admin-table td:first-child { width: 220px; min-width: 180px; }
+  .admin-table td:last-child, .admin-table th:last-child { width: 1px; white-space: nowrap; padding-right: 16px; }
   .user-name { font-weight: 600; font-size: 14px; }
   .user-email { font-size: 12px; color: var(--muted); margin-top: 2px; word-break: break-all; }
 
@@ -700,8 +701,9 @@ function MemberAuthModal({ member, onClose, onToggle }) {
                 {MACHINES.filter(m => m.category === cat).map(m => {
                   const active = member.authorizedMachines.includes(m.id);
                   return (
-                    <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`} onClick={() => onToggle(member.id, m.id)}>
-                      {m.icon} {m.name}
+                    <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`} onClick={() => onToggle(member.id, m.id)} style={{ flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                      <span>{m.icon} {m.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.65 }}>{m.brand}</span>
                     </label>
                   );
                 })}
