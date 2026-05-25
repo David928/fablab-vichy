@@ -665,8 +665,8 @@ function MachinesView({ currentUser }) {
         <div className="page-title">Machines disponibles</div>
         <div className="page-sub">Cliquez sur une machine pour accéder à son mode d'emploi si vous avez été formé.</div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-        <div className="tabs" style={{ margin: 0 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 4 }}>
           {categories.map(cat => (
             <button key={cat} className={`tab ${selectedCategory === cat ? "active" : ""}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
           ))}
@@ -896,37 +896,29 @@ function AdminView() {
         <div style={{ color: "var(--muted)", textAlign: "center", padding: 48 }}>Chargement…</div>
       ) : (
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Membre</th>
-                <th>Machines</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>
-                  {search ? "Aucun résultat." : "Aucun membre."}
-                </td></tr>
-              ) : filtered.map(user => (
-                <tr key={user.id} className="member-row" onClick={() => setSelectedMemberId(user.id)}>
-                  <td>
-                    <div className="user-name">{user.name}</div>
-                    <div className="user-email">{user.email}</div>
-                  </td>
-                  <td>
-                    <span className={`machine-count ${user.authorizedMachines.length > 0 ? "has-access" : ""}`}>
-                      {user.authorizedMachines.length} / {MACHINES.length}
-                    </span>
-                  </td>
-                  <td onClick={e => e.stopPropagation()}>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>
+              {search ? "Aucun résultat." : "Aucun membre."}
+            </div>
+          ) : filtered.map((user, i) => (
+            <div
+              key={user.id}
+              className="member-row"
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: i < filtered.length - 1 ? "1px solid rgba(46,51,71,0.5)" : "none" }}
+              onClick={() => setSelectedMemberId(user.id)}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="user-name">{user.name}</div>
+                <div className="user-email">{user.email}</div>
+              </div>
+              <span className={`machine-count ${user.authorizedMachines.length > 0 ? "has-access" : ""}`}>
+                {user.authorizedMachines.length}/{MACHINES.length}
+              </span>
+              <div onClick={e => e.stopPropagation()}>
+                <button className="btn btn-danger btn-sm" onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
