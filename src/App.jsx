@@ -126,14 +126,7 @@ const css = `
     position: sticky; top: 0; z-index: 100;
   }
   .header-logo { display: flex; align-items: center; gap: 12px; }
-  .logo-mark {
-    width: 36px; height: 36px; background: var(--accent);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Space Mono', monospace; font-size: 18px; font-weight: 700;
-    color: var(--bg); clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  }
-  .logo-text { font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 0.1em; }
-  .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; }
+  .logo-img { height: 40px; width: auto; }
 
   .header-user { display: flex; align-items: center; gap: 12px; }
   .user-badge { padding: 6px 14px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; font-weight: 500; }
@@ -470,11 +463,7 @@ export default function App() {
       <div className="app">
         <header className="header">
           <div className="header-logo">
-            <div className="logo-mark">F</div>
-            <div>
-              <div className="logo-text">FABLAB</div>
-              <div className="logo-sub">Vichy · Machines</div>
-            </div>
+            <img src="/logo.png" alt="FabLab Vichy Communauté" className="logo-img" />
           </div>
           <div className="header-user">
             <span className="user-badge">{enrichedUser.name}</span>
