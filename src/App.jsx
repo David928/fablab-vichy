@@ -539,6 +539,7 @@ function LoginScreen({ onLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   const handleSubmit = async () => {
     if (!email || !password) return;
@@ -574,6 +575,18 @@ function LoginScreen({ onLogin }) {
         <button className="btn btn-primary" style={{ width: "100%" }} onClick={handleSubmit} disabled={loading}>
           {loading ? "Connexion…" : "Se connecter"}
         </button>
+        <button
+          style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 13, cursor: "pointer", marginTop: 14, width: "100%", textAlign: "center", textDecoration: "underline" }}
+          onClick={() => setShowForgot(s => !s)}
+        >
+          Mot de passe oublié ?
+        </button>
+        {showForgot && (
+          <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border)", fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+            Contactez un responsable du FabLab pour réinitialiser votre mot de passe.<br />
+            <a href="mailto:contact@vichy-fablab.fr" style={{ color: "var(--accent)", textDecoration: "none" }}>contact@vichy-fablab.fr</a>
+          </div>
+        )}
       </div>
     </div>
   );
