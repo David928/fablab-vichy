@@ -635,7 +635,7 @@ function MachinesView({ currentUser }) {
       </div>
       <div className="machine-grid">
         {MACHINES.map(machine => {
-          const isAuth = currentUser.authorizedMachines.includes(machine.id);
+          const isAuth = currentUser.role === "admin" || currentUser.authorizedMachines.includes(machine.id);
           return (
             <div
               key={machine.id}
