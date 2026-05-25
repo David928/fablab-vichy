@@ -215,7 +215,7 @@ const css = `
   .user-name { font-weight: 600; font-size: 14px; }
   .user-email { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-  .machine-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .machine-checkboxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .machine-toggle { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; border: 1px solid var(--border); background: var(--bg); color: var(--muted); user-select: none; }
   .machine-toggle.active { border-color: rgba(46,196,182,0.5); background: rgba(46,196,182,0.1); color: #2EC4B6; }
   .machine-toggle input { display: none; }
