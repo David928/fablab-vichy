@@ -474,12 +474,11 @@ function AdminView() {
               <tr>
                 <th>Membre</th>
                 <th>Machines autorisées</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {members.length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>Aucun membre.</td></tr>
+                <tr><td colSpan={2} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>Aucun membre.</td></tr>
               ) : members.map(user => (
                 <tr key={user.id}>
                   <td>
@@ -488,6 +487,7 @@ function AdminView() {
                     <div style={{ marginTop: 6, fontSize: 12, color: "var(--accent)" }}>
                       {user.authorizedMachines.length}/{MACHINES.length} machines
                     </div>
+                    <button className="btn btn-danger btn-sm" style={{ marginTop: 10 }} onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
                   </td>
                   <td>
                     <div className="machine-checkboxes">
@@ -500,9 +500,6 @@ function AdminView() {
                         );
                       })}
                     </div>
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
                   </td>
                 </tr>
               ))}
