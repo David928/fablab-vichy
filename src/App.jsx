@@ -429,6 +429,8 @@ const css = `
   .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
   .btn-ghost:hover { color: var(--text); border-color: var(--text); }
   .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn-danger { background: rgba(230,57,70,0.12); color: var(--danger); border: 1px solid rgba(230,57,70,0.3); }
+  .btn-danger:hover { background: rgba(230,57,70,0.22); }
 
   .login-screen {
     flex: 1; display: flex; align-items: center; justify-content: center;
@@ -507,8 +509,9 @@ const css = `
   .admin-table th { text-align: left; padding: 10px 14px; font-size: 11px; font-family: 'Space Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
   .admin-table td { padding: 14px; border-bottom: 1px solid rgba(46,51,71,0.5); vertical-align: top; }
   .admin-table tr:last-child td { border-bottom: none; }
+  .admin-table th:first-child, .admin-table td:first-child { width: 220px; min-width: 180px; }
   .user-name { font-weight: 600; font-size: 14px; }
-  .user-email { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .user-email { font-size: 12px; color: var(--muted); margin-top: 2px; word-break: break-all; }
 
   .machine-checkboxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .machine-toggle { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.15s; border: 1px solid var(--border); background: var(--bg); color: var(--muted); user-select: none; }
@@ -813,6 +816,65 @@ function AdminView() {
   );
 }
 
+function ProfileView({ currentUser }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = async () => {
+    setError(""); setSuccess("");
+    if (!currentPassword || !newPassword || !confirmPassword) { setError("Tous les champs sont obligatoires."); return; }
+    if (newPassword !== confirmPassword) { setError("Les nouveaux mots de passe ne correspondent pas."); return; }
+    if (newPassword.length < 4) { setError("Le mot de passe doit contenir au moins 4 caractères."); return; }
+    setLoading(true);
+    const { data } = await supabase.from("members").select("id").eq("id", currentUser.id).eq("password", currentPassword).single();
+    if (!data) { setLoading(false); setError("Mot de passe actuel incorrect."); return; }
+    const { error: updateErr } = await supabase.from("members").update({ password: newPassword }).eq("id", currentUser.id);
+    setLoading(false);
+    if (updateErr) { setError("Erreur lors de la mise à jour."); return; }
+    setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    setSuccess("Mot de passe modifié avec succès !");
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="page-title">Mon compte</div>
+        <div className="page-sub">Modifiez votre mot de passe.</div>
+      </div>
+      <div style={{ maxWidth: 440 }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, color: "var(--accent)", marginBottom: 20, letterSpacing: "0.1em", textTransform: "uppercase" }}>Changer le mot de passe</div>
+          <div style={{ marginBottom: 20, padding: "10px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{currentUser.name}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{currentUser.email}</div>
+          </div>
+          <div className="field">
+            <label>Mot de passe actuel</label>
+            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="••••••" />
+          </div>
+          <div className="field">
+            <label>Nouveau mot de passe</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••" />
+          </div>
+          <div className="field">
+            <label>Confirmer le nouveau mot de passe</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••" onKeyDown={e => e.key === "Enter" && handleChange()} />
+          </div>
+          {error && <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+          {success && <div style={{ color: "var(--success)", fontSize: 13, marginBottom: 12 }}>{success}</div>}
+          <button className="btn btn-primary" onClick={handleChange} disabled={loading}>
+            {loading ? "Mise à jour…" : "Modifier le mot de passe"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("machines");
@@ -843,14 +905,14 @@ export default function App() {
           </div>
         </header>
         <main className="main">
-          {currentUser.role === "admin" && (
-            <div className="tabs">
-              <button className={`tab ${tab === "machines" ? "active" : ""}`} onClick={() => setTab("machines")}>Machines</button>
-              <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Membres</button>
-            </div>
-          )}
+          <div className="tabs">
+            <button className={`tab ${tab === "machines" ? "active" : ""}`} onClick={() => setTab("machines")}>Machines</button>
+            {currentUser.role === "admin" && <button className={`tab ${tab === "admin" ? "active" : ""}`} onClick={() => setTab("admin")}>Membres</button>}
+            <button className={`tab ${tab === "profile" ? "active" : ""}`} onClick={() => setTab("profile")}>Mon compte</button>
+          </div>
           {tab === "machines" && <MachinesView currentUser={currentUser} />}
           {tab === "admin" && currentUser.role === "admin" && <AdminView />}
+          {tab === "profile" && <ProfileView currentUser={currentUser} />}
         </main>
       </div>
     </>
