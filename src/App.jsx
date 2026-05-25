@@ -522,6 +522,13 @@ const css = `
   .save-msg { font-size: 14px; }
   .save-msg strong { color: var(--accent); }
 
+  .member-row { cursor: pointer; transition: background 0.1s; }
+  .member-row:hover td { background: var(--surface2); }
+  .machine-count { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); font-size: 12px; font-family: 'Space Mono', monospace; color: var(--muted); }
+  .machine-count.has-access { border-color: rgba(46,196,182,0.4); color: #2EC4B6; background: rgba(46,196,182,0.08); }
+  .search-input { width: 100%; max-width: 320px; padding: 9px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; margin-bottom: 16px; }
+  .search-input:focus { border-color: var(--accent); }
+
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 `;
@@ -668,6 +675,45 @@ function MachinesView({ currentUser }) {
   );
 }
 
+function MemberAuthModal({ member, onClose, onToggle }) {
+  const categories = [...new Set(MACHINES.map(m => m.category))];
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 720 }}>
+        <div className="modal-header">
+          <div className="modal-header-left">
+            <div className="modal-machine-name">{member.name}</div>
+            <div className="modal-machine-brand">{member.email}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span className={`machine-count ${member.authorizedMachines.length > 0 ? "has-access" : ""}`}>
+              {member.authorizedMachines.length} / {MACHINES.length} machines
+            </span>
+            <button className="modal-close" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <div className="modal-body">
+          {categories.map(cat => (
+            <div key={cat} style={{ marginBottom: 20 }}>
+              <div className="section-label" style={{ marginBottom: 10 }}>{cat}</div>
+              <div className="machine-checkboxes">
+                {MACHINES.filter(m => m.category === cat).map(m => {
+                  const active = member.authorizedMachines.includes(m.id);
+                  return (
+                    <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`} onClick={() => onToggle(member.id, m.id)}>
+                      {m.icon} {m.name}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminView() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -675,6 +721,8 @@ function AdminView() {
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "user" });
   const [addError, setAddError] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [search, setSearch] = useState("");
 
   const fetchMembers = async () => {
     const { data } = await supabase.from("members").select("*").eq("role", "user").order("name");
@@ -700,6 +748,7 @@ function AdminView() {
     if (!confirm(`Supprimer le membre "${name}" ?`)) return;
     await supabase.from("members").delete().eq("id", userId);
     setMembers(prev => prev.filter(u => u.id !== userId));
+    if (selectedMemberId === userId) setSelectedMemberId(null);
     setSavedMsg("Membre supprimé.");
     setTimeout(() => setSavedMsg(""), 2500);
   };
@@ -722,12 +771,19 @@ function AdminView() {
     setTimeout(() => setSavedMsg(""), 2500);
   };
 
+  const filtered = members.filter(u =>
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedMember = selectedMemberId ? members.find(u => u.id === selectedMemberId) : null;
+
   return (
     <>
       <div className="page-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div className="page-title">Gestion des membres</div>
-          <div className="page-sub">Gérez les membres et leurs autorisations machines.</div>
+          <div className="page-sub">{members.length} membre{members.length !== 1 ? "s" : ""} — cliquez sur un membre pour gérer ses autorisations.</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(s => !s)}>
           {showAdd ? "Annuler" : "+ Ajouter un membre"}
@@ -763,6 +819,14 @@ function AdminView() {
         </div>
       )}
 
+      <input
+        className="search-input"
+        type="text"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Rechercher un membre…"
+      />
+
       {loading ? (
         <div style={{ color: "var(--muted)", textAlign: "center", padding: 48 }}>Chargement…</div>
       ) : (
@@ -771,39 +835,42 @@ function AdminView() {
             <thead>
               <tr>
                 <th>Membre</th>
-                <th>Machines autorisées</th>
+                <th>Machines</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {members.length === 0 ? (
-                <tr><td colSpan={2} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>Aucun membre.</td></tr>
-              ) : members.map(user => (
-                <tr key={user.id}>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--muted)", padding: 32 }}>
+                  {search ? "Aucun résultat." : "Aucun membre."}
+                </td></tr>
+              ) : filtered.map(user => (
+                <tr key={user.id} className="member-row" onClick={() => setSelectedMemberId(user.id)}>
                   <td>
                     <div className="user-name">{user.name}</div>
                     <div className="user-email">{user.email}</div>
-                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--accent)" }}>
-                      {user.authorizedMachines.length}/{MACHINES.length} machines
-                    </div>
-                    <button className="btn btn-danger btn-sm" style={{ marginTop: 10 }} onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
                   </td>
                   <td>
-                    <div className="machine-checkboxes">
-                      {MACHINES.map(m => {
-                        const active = user.authorizedMachines.includes(m.id);
-                        return (
-                          <label key={m.id} className={`machine-toggle ${active ? "active" : ""}`} onClick={() => toggle(user.id, m.id)}>
-                            {m.icon} {m.name}
-                          </label>
-                        );
-                      })}
-                    </div>
+                    <span className={`machine-count ${user.authorizedMachines.length > 0 ? "has-access" : ""}`}>
+                      {user.authorizedMachines.length} / {MACHINES.length}
+                    </span>
+                  </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-danger btn-sm" onClick={() => deleteMember(user.id, user.name)}>Supprimer</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {selectedMember && (
+        <MemberAuthModal
+          member={selectedMember}
+          onClose={() => setSelectedMemberId(null)}
+          onToggle={toggle}
+        />
       )}
 
       {savedMsg && (
