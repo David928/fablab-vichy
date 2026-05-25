@@ -423,7 +423,6 @@ const css = `
   .user-badge { padding: 6px 14px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; font-weight: 500; }
   .admin-tag { padding: 3px 8px; border-radius: 4px; background: rgba(78,205,196,0.15); border: 1px solid rgba(78,205,196,0.4); color: var(--accent); font-size: 10px; font-family: 'Space Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; }
 
-  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all 0.15s ease; }
   .btn-primary { background: var(--accent); color: var(--bg); }
   .btn-primary:hover { background: #3BBDB5; transform: translateY(-1px); }
   .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
@@ -510,7 +509,8 @@ const css = `
   .admin-table td { padding: 14px; border-bottom: 1px solid rgba(46,51,71,0.5); vertical-align: top; }
   .admin-table tr:last-child td { border-bottom: none; }
   .admin-table th:first-child, .admin-table td:first-child { width: 220px; min-width: 180px; }
-  .admin-table td:last-child, .admin-table th:last-child { width: 1px; white-space: nowrap; padding-right: 16px; }
+  .admin-table td:last-child, .admin-table th:last-child { width: 120px; min-width: 120px; padding-right: 16px; }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all 0.15s ease; white-space: nowrap; }
   .user-name { font-weight: 600; font-size: 14px; }
   .user-email { font-size: 12px; color: var(--muted); margin-top: 2px; word-break: break-all; }
 
@@ -647,6 +647,17 @@ function MachineModal({ machine, isAuthorized, onClose }) {
 
 function MachinesView({ currentUser }) {
   const [selected, setSelected] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("Toutes");
+  const [myMachinesOnly, setMyMachinesOnly] = useState(false);
+
+  const categories = ["Toutes", ...new Set(MACHINES.map(m => m.category))];
+
+  const displayed = MACHINES.filter(m => {
+    const isAuth = currentUser.role === "admin" || currentUser.authorizedMachines.includes(m.id);
+    if (myMachinesOnly && !isAuth) return false;
+    if (selectedCategory !== "Toutes" && m.category !== selectedCategory) return false;
+    return true;
+  });
 
   return (
     <>
@@ -654,8 +665,21 @@ function MachinesView({ currentUser }) {
         <div className="page-title">Machines disponibles</div>
         <div className="page-sub">Cliquez sur une machine pour accéder à son mode d'emploi si vous avez été formé.</div>
       </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+        <div className="tabs" style={{ margin: 0 }}>
+          {categories.map(cat => (
+            <button key={cat} className={`tab ${selectedCategory === cat ? "active" : ""}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
+          ))}
+        </div>
+        <button className={`btn btn-sm ${myMachinesOnly ? "btn-primary" : "btn-ghost"}`} onClick={() => setMyMachinesOnly(s => !s)}>
+          {myMachinesOnly ? "● Mes machines" : "○ Mes machines"}
+        </button>
+      </div>
+      {displayed.length === 0 && (
+        <div style={{ color: "var(--muted)", textAlign: "center", padding: 48 }}>Aucune machine dans cette catégorie.</div>
+      )}
       <div className="machine-grid">
-        {MACHINES.map(machine => {
+        {displayed.map(machine => {
           const isAuth = currentUser.role === "admin" || currentUser.authorizedMachines.includes(machine.id);
           return (
             <div
@@ -691,6 +715,17 @@ function MachinesView({ currentUser }) {
 
 function MemberAuthModal({ member, onClose, onToggle }) {
   const categories = [...new Set(MACHINES.map(m => m.category))];
+  const [newPwd, setNewPwd] = useState("");
+  const [pwdMsg, setPwdMsg] = useState("");
+
+  const resetPassword = async () => {
+    if (!newPwd.trim()) return;
+    await supabase.from("members").update({ password: newPwd.trim() }).eq("id", member.id);
+    setNewPwd("");
+    setPwdMsg("Mot de passe réinitialisé.");
+    setTimeout(() => setPwdMsg(""), 3000);
+  };
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 720 }}>
@@ -723,6 +758,21 @@ function MemberAuthModal({ member, onClose, onToggle }) {
               </div>
             </div>
           ))}
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+            <div className="section-label" style={{ marginBottom: 10 }}>Réinitialiser le mot de passe</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                type="text"
+                value={newPwd}
+                onChange={e => setNewPwd(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && resetPassword()}
+                placeholder="Nouveau mot de passe"
+                style={{ flex: 1, padding: "9px 14px", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 14, fontFamily: "'DM Sans', sans-serif", outline: "none" }}
+              />
+              <button className="btn btn-primary btn-sm" onClick={resetPassword}>Réinitialiser</button>
+            </div>
+            {pwdMsg && <div style={{ color: "var(--success)", fontSize: 13, marginTop: 8 }}>{pwdMsg}</div>}
+          </div>
         </div>
       </div>
     </div>
