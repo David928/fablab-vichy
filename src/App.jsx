@@ -126,7 +126,7 @@ const css = `
     position: sticky; top: 0; z-index: 100;
   }
   .header-logo { display: flex; align-items: center; gap: 12px; }
-  .logo-img { height: 40px; width: auto; }
+  .logo-img { height: 44px; width: auto; }
 
   .header-user { display: flex; align-items: center; gap: 12px; }
   .user-badge { padding: 6px 14px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; font-weight: 500; }
@@ -145,8 +145,9 @@ const css = `
                 radial-gradient(ellipse at 80% 20%, rgba(246,162,161,0.06) 0%, transparent 50%);
   }
   .login-card { width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; }
-  .login-title { font-family: 'Space Mono', monospace; font-size: 22px; margin-bottom: 6px; }
-  .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .login-logo { display: flex; justify-content: center; margin-bottom: 28px; }
+  .login-logo img { height: 64px; width: auto; }
+  .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; text-align: center; }
   .field { margin-bottom: 18px; }
   .field label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
   .field input { width: 100%; padding: 10px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; outline: none; }
@@ -245,7 +246,9 @@ function LoginScreen({ onLogin }) {
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="login-title">FabLab Vichy</div>
+        <div className="login-logo">
+          <img src="/logo.png" alt="FabLab Vichy Communauté" />
+        </div>
         <div className="login-sub">Accédez aux modes d'emploi des machines.</div>
         <div className="field">
           <label>Email</label>
